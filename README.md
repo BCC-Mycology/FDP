@@ -1,2 +1,2 @@
-# FDP
-Arduino Software for Fungal Degradation of Plastic
+# Fungal Degradation & Automated Growth Chambers 
+Arduino Software for Growth Chambers.
