@@ -25,8 +25,8 @@
 #define FAN_TIME_OFF 600000 // Defines maximum amount of time fan is allowed to be off.
 
 
-// 7-3-42
-const byte OC1A_PIN = 9;
+// ***Not sure if we still need the next two lines.***
+const byte OC1A_PIN = 9; 
 const byte OC1B_PIN = 10;
 
 const word PWM_FREQ_HZ = 25000;                  // Adjust this value to adjust the frequency of the fan.
@@ -34,104 +34,115 @@ const word TCNT1_TOP = 16000000/(2*PWM_FREQ_HZ); // DO NOT MODIFY!!! Used in the
 
 GyverOLED<SSH1106_128x64,OLED_BUFFER, OLED_SPI, CS, DC, RES> oled; // Allows pins to properly communicate to display.
 
-DHT11 dht(DHT); // declare sensor name
+DHT11 dht(DHT); // Declares sensor name as type DHT11 and define "dht."
 
-float hum;  // Declares humidity.
-float temp; // Declares temperature.
+float hum;         // Declares humidity.
+float temp;        // Declares temperature.
+float minHum = 0;  // Declares minimun humidity.
+float maxHum = 0;  // Declares maximum humidity.
+float minTemp = 0; // Declares minimun temperature.
+float maxTemp = 0; // Declares maximum temperature.
 
 int32_t time_off = 0;
 int32_t time_on = 0;
 
+// Setup Function*
 void setup() {
-  oled.init();        // Initialize oled display.
-  Serial.begin(9600); // Begin serial monitor for any troubleshooting/testing.
-  while(!Serial);     // Wait until the serial monitor is opened by the user.
-  oled.home();        // Set the cursor to the home position on the OLED display.
-  oled.update();      // Update the OLED display to show any chnages made
+  oled.init();        // Initializes oled display.
+  Serial.begin(9600); // Begins serial monitor for any troubleshooting/testing.
+  while(!Serial);     // Waits until the serial monitor is opened by the user.
+  oled.home();        // Sets the cursor to the home position on the OLED display.
+  oled.update();      // Updates the OLED display to show any changes made.
 
-pinMode(OC1A_PIN, OUTPUT);
+  pinMode (6, OUTPUT);   // NEW ***
+  pinMode (5, OUTPUT);   // NEW ***
+  digitalWrite (6, LOW); // NEW ***
+  digitalWrite (7, LOW); // NEW ***
 
-// Clear Timer1 control and count registers.
+  pinMode(OC1A_PIN, OUTPUT);
+
+  // Clears Timer1 control and count registers.
   TCCR1A = 0;
   TCCR1B = 0;
   TCNT1 = 0;
 
-setPwmDuty(100); // Change this value 0-100 to adjust duty cycle/fan speed.
+  setPwmDuty(100); // Change this value 0-100 to adjust duty cycle/fan speed.
 
-TCCR1A |= (1 << COM1A1) | (1 << WGM11);
-TCCR1B |= (1 << WGM13) | (1 << CS10);
-ICR1 = TCNT1_TOP;
+  // ***Display (SSH106) does not like next 3 lines. So, I commented them out for now. -Jay***
+  //TCCR1A |= (1 << COM1A1) | (1 << WGM11);
+  //TCCR1B |= (1 << WGM13) | (1 << CS10);
+  //ICR1 = TCNT1_TOP;
+
 }
 
+// Loop function*
 void loop(void) {
-  oled.home(); // sets cursor
+  oled.home(); // Sets cursor to home position.
 
-  // check serial monitor readings
+  // Checks sensor readings in serial monitor.
   Serial.print(dht.readTemperature());
   Serial.print(dht.readHumidity());
+  
+  float converted = 0.00; // Declares and define "coverted."
 
-  // hold name for c converted to f 
-  float converted = 0.00; 
+  hum = dht.readHumidity();    // Defines "hum."
+  temp= dht.readTemperature(); // Defines "temp."
+  minHum = 60;                 // Defines minimum humidity.
+  maxHum = 90;                 // Defines maximun humidity.
+  minTemp = 20;                // Defines minimum temperature.
+  maxTemp = 22;                // Defines maximun temperature.
 
-  // declare hum & temp value
-  hum = dht.readHumidity(); 
-  temp= dht.readTemperature();
+  oled.println("TEMPERATURES:"); // Displays "TEMPERATURES:" on SSH106.
 
-  // temperature display
-  oled.println("TEMPERATURES:");
-
-  // display temp. in celsius 
+  // Displays temperature in celsius.
   oled.println(" ");
   oled.print("Celsius: ");
   oled.println(temp);
 
-  // fahrenheit conversion
+  // Fahrenheit conversion.
   // T(°F) = T(°C) × 9/5 + 32
   converted = ( temp * 1.8 ) + 32;
 
-  // display temp. in fahrenheit
+  // Displays temperature in fahrenheit.
   oled.print("Fahrenheit: ");
   oled.println(converted);
   oled.println(" ");
   oled.println("----------------------");
 
-  // display humidity percentage
+  // Displays humidity percentage.
   oled.println(" ");
   oled.print("Humidity: ");
   oled.print(hum);
   oled.println("%");
 
-  // transfer internal memory to the display
-  oled.update(); 
+  oled.update(); // Transfer internal memory to the display.
 
+  // If humidity is below the minimum, turn on humidifier.
+  if (hum < minHum) {
+    digitalWrite (5, HIGH);
+  }
+  // If humidity is above the maximum, turn off humidifier and turn on the fan.
+  if (hum > maxHum) {
+    digitalWrite (5, LOW);
+    digitalWrite (6, HIGH);
+  }
 
-  if (temp > MAX_TEMP){
-    // turn on fan
+  // If temperature is below the minimum, turn off the fan.
+  if (temp < minTemp) {
+    digitalWrite (6, LOW);
   }
   
-  if (hum > MAX_HUM){
-    // turn on fan
-    // turn off humidifier
+  // If temperature is above the maximum, turn on the fan.
+  if (temp > maxTemp) {
+    digitalWrite (6, HIGH);
   }
 
-  if (hum > MAX_HUM){
-    // turn off fan
-    // turn on humidifier
-    fan_time = millis() - fan_time;
-  }
+  // ADD LOGIC TO TURN ON FAN IF ITS BEEN ON FOR TOO LONG AND VICE-VERSA.
 
-  if (time_off > FAN_TIME_OFF){
-    // turn fan on
-  }
-
-  if (time_on > FAN_TIME_ON){
-    // turn fan off
-  }
-
-  delay(200);  
+  delay(1000);  
 }
 
-//setPwmDuty(0); //Change this value 0-100 to adjust duty cycle
+// setPwmDuty function
 void setPwmDuty(byte duty) {
-  OCR1A = (word) (duty*TCNT1_TOP)/100 - 1;
+//  OCR1A = (word) (duty*TCNT1_TOP)/100 - 1; // dont remember why we commented this out lol
 }
